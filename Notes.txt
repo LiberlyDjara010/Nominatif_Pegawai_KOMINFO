@@ -1,0 +1,14 @@
+1. Buat notif peringatan kalau mau hapus data "Anda Yakin Ingin Menghapusnya?"
+3. Cari tau nomor seri itu untuk apa. dan fungsi semua form
+4. Buat checklist ketentuan ketentuan untuk naik pangkat yang sudah dan belum di lengkapi (kalau sudah di lengkapi akan di centang datanya, 
+dan kalau semuanya sudah dicentang baru nanti akan langsung muncul centang lengkap di bagian form kelengkapan berkas, kalau belum bisa di klik yang 
+belum lengkap di form kelengkapan berkas untuk checklist data data yang di lengkapi).
+5. Halaman Tambah error (
+Fatal error: Uncaught TypeError: call_user_func_array(): Argument #1 ($callback) must be a valid callback, first array member is not a valid class name or object in C:\xampp\htdocs\nominatif-pegawai\tambah.php:142 Stack trace: #0 {main} thrown in C:\xampp\htdocs\nominatif-pegawai\tambah.php on line 142
+)
+6. Tambahkan untuk informasi gaji pegawai
+7. Halaman Preview & download error 
+Fatal error: Uncaught Error: Call to undefined function isSuperAdmin() in C:\xampp\htdocs\nominatif-pegawai\layout.php:12 Stack trace: #0 C:\xampp\htdocs\nominatif-pegawai\preview_export.php(33): include() #1 {main} thrown in C:\xampp\htdocs\nominatif-pegawai\layout.php on line 12
+
+
+selesai magang kira kira 19 agustus.
