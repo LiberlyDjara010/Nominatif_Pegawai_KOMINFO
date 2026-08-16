@@ -2,31 +2,35 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
-use Database\Factories\UserFactory;
-use Illuminate\Database\Eloquent\Attributes\Fillable;
-use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
-use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
-    /** @use HasFactory<UserFactory> */
-    use HasFactory, Notifiable;
+    use HasFactory;
 
-    /**
-     * Get the attributes that should be cast.
-     *
-     * @return array<string, string>
-     */
-    protected function casts(): array
+    protected $table = 'user';
+
+    public $timestamps = false;
+
+    protected $fillable = ['username', 'nama', 'role', 'password'];
+
+    protected $hidden = ['password'];
+
+    protected $casts = [
+        'password' => 'hashed',
+    ];
+
+    public function isSuperAdmin(): bool
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        $role = strtolower(trim((string) $this->role));
+        return in_array($role, ['super admin', 'superadmin', 'aptika', 'admin'], true)
+            || str_contains($role, 'super')
+            || str_contains($role, 'aptika');
+    }
+
+    public function canManageData(): bool
+    {
+        return $this->isSuperAdmin() || in_array(strtolower(trim((string) $this->role)), ['kepegawaian', 'bagian kepegawaian', 'user'], true);
     }
 }
