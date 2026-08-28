@@ -10,6 +10,8 @@ use Filament\Tables\Filters\Filter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Filament\Actions\ViewAction;
+use Filament\Actions\Action;
+use App\Models\LoginLog;
 
 class LoginLogsTable
 {
@@ -59,6 +61,14 @@ class LoginLogsTable
             ], layout: FiltersLayout::AboveContent)
             ->recordActions([
                 ViewAction::make(),
+                Action::make('tandaiDibaca')
+                    ->label('Tandai dibaca')
+                    ->icon('heroicon-o-check-circle')
+                    ->visible(fn (LoginLog $record): bool => ! $record->dibaca)
+                    ->requiresConfirmation()
+                    ->action(function (LoginLog $record): void {
+                        $record->update(['dibaca' => true]);
+                    }),
             ])
             ->searchable();
     }

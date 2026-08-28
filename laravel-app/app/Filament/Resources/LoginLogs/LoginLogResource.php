@@ -48,6 +48,20 @@ class LoginLogResource extends Resource
         return parent::getEloquentQuery()->untukPemirsa(auth()->user());
     }
 
+    public static function getNavigationBadge(): ?string
+    {
+        $jumlahBelumDibaca = static::getEloquentQuery()
+            ->where('dibaca', false)
+            ->count();
+
+        return $jumlahBelumDibaca > 0 ? (string) $jumlahBelumDibaca : null;
+    }
+
+    public static function getNavigationBadgeColor(): string | array | null
+    {
+        return 'danger';
+    }
+
     public static function canCreate(): bool
     {
         return false;

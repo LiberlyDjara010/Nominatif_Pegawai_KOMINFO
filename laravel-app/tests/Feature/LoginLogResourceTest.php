@@ -64,3 +64,36 @@ it('user kepegawaian tidak dapat mengakses halaman riwayat login', function () {
         ->get('/admin/riwayat-login')
         ->assertForbidden();
 });
+
+it('badge navigasi menampilkan jumlah belum dibaca sesuai hierarki', function () {
+    $super = buatAkun('aptika_test', 'superadmin');
+    $admin = buatAkun('admin_test', 'admin');
+    $userKepeg = buatAkun('kepeg_test', 'kepegawaian');
+
+    LoginLog::create(['username' => 'kepeg_test', 'role' => 'kepegawaian', 'status' => 'sukses', 'dibaca' => false, 'waktu' => now()]);
+    LoginLog::create(['username' => 'kepeg_test', 'role' => 'kepegawaian', 'status' => 'sukses', 'dibaca' => false, 'waktu' => now()]);
+    LoginLog::create(['username' => 'admin_test', 'role' => 'admin', 'status' => 'sukses', 'dibaca' => false, 'waktu' => now()]);
+
+    $this->actingAs($super);
+
+    // superadmin melihat semua (3 belum dibaca)
+    $this->assertEquals('3', LoginLogResource::getNavigationBadge());
+
+    // admin hanya melihat dari user kepegawaian (2), bukan milik admin lain
+    $this->actingAs($admin);
+    $this->assertEquals('2', LoginLogResource::getNavigationBadge());
+});
+
+it('aksi tandai dibaca memperbarui kolom dibaca', function () {
+    $super = buatAkun('aptika_test', 'superadmin');
+    $log = LoginLog::create([
+        'username' => 'aptika_test', 'role' => 'superadmin', 'status' => 'sukses',
+        'dibaca' => false, 'waktu' => now(),
+    ]);
+
+    expect($log->dibaca)->toBeFalse();
+
+    $log->update(['dibaca' => true]);
+
+    expect($log->fresh()->dibaca)->toBeTrue();
+});
