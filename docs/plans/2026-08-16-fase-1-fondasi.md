@@ -18,8 +18,10 @@ Laravel 13 (PHP 8.3), MySQL 8, Eloquent ORM, Filament v4 (`~4.0`), Pest, Compose
 - Semua UI/komentar/commit message berbahasa Indonesia.
 - **JANGAN pernah menampilkan/menulis ulang kata sandi DB** (ada di `koneksi.php` line 4) ke dalam file apa pun yang ter-commit; hanya ke `.env` (gitignored).
 - **`LOGO_DISKOMINFO.png` di root TIDAK BOLEH dihapus/dipindah** — dipakai sebagai logo website. Salin (jangan pindah) ke `laravel-app/public/LOGO_DISKOMINFO.png` untuk dipakai panel.
+- **Hierarki role 3 tingkat (keputusan user)**: `user` (divisi Kepegawaian, data entry) → `admin` (tingkat menengah, + kelola akun user) → `superadmin` (APTIKA, kontrol penuh + kelola admin/superadmin). Helper di `app/Models/User.php` (`levelRole`, `isUser/isAdmin/isSuperAdmin`, `canManageData/canManageUsers/canManageAdmins`) + `app/Support/Role.php` + `app/Policies/PegawaiPolicy.php` & `UserPolicy.php` sudah disiapkan. `admin` TIDAK lagi dianggap superadmin di lapisan Laravel (berbeda dari `auth.php` legacy yang masih menganggap `admin` = super admin — dua sistem berjalan paralel sampai cutover).
 - Jangan jalankan test terhadap DB produksi `nominatif_pegawai` — pakai DB test `nominatif_pegawai_test`.
 - Verifikasi tiap file PHP yang dibuat: `php -l <file>`.
+- **Temuan Task 2 (`db:show`)**: DB `nominatif_pegawai` punya **4 tabel** — `pegawai`, `user`, `checklist_pangkat`, DAN **`login_log`** (log aktivitas login legacy). JANGAN di-drop; migrasi baru tak boleh menyentuhnya; dicatat untuk Fase 2 (porting fitur log login).
 - Commit kecil-kecil setelah tiap task; file `.env` dan `vendor/` tidak boleh ikut commit.
 - Windows PowerShell: perintah composer dengan `^` harus diganti `~` (contoh: `composer require filament/filament:"~4.0"`).
 - Task disusun sekuensial; yang belakang bergantung pada yang depan.
