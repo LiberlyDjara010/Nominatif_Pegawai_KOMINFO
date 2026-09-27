@@ -23,6 +23,13 @@ $navItems = [
 
 if (isSuperAdmin($roleUser)) {
     $navItems[] = ['href' => 'kelola_akun.php', 'icon' => '', 'label' => 'Kelola Akun (Hak Akses)', 'page' => 'kelola_akun'];
+    $jumlahLoginBaru = jumlahLoginBelumDibaca($conn);
+    $navItems[] = [
+        'href' => 'notifikasi_login.php',
+        'icon' => '',
+        'label' => 'Notifikasi Login' . ($jumlahLoginBaru > 0 ? " ($jumlahLoginBaru)" : ''),
+        'page' => 'notifikasi_login',
+    ];
 }
 
 ?>
@@ -85,9 +92,14 @@ if (isSuperAdmin($roleUser)) {
     <!-- TOPBAR -->
 
     <div class="topbar">
-        <div class="topbar-title">
-            <h1><?= $pageTitle ?? 'Dashboard' ?></h1>
-            <p><?= $pageSubtitle ?? date('l, d F Y') ?></p>
+        <div class="topbar-left">
+            <button type="button" class="mobile-menu-btn" aria-label="Buka menu">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="topbar-title">
+                <h1><?= $pageTitle ?? 'Dashboard' ?></h1>
+                <p><?= $pageSubtitle ?? date('l, d F Y') ?></p>
+            </div>
         </div>
         <div class="topbar-right">
             <div class="topbar-user-chip">
@@ -95,5 +107,7 @@ if (isSuperAdmin($roleUser)) {
             </div>
         </div>
     </div>
+
+    <div class="sidebar-overlay"></div>
 
     <div class="page-body">

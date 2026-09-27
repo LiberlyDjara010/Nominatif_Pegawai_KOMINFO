@@ -711,3 +711,129 @@ table.data-table tbody tr:hover { background: #F8FAFF; }
     .form-grid { grid-template-columns: 1fr; }
     .form-grid.cols-3 { grid-template-columns: 1fr 1fr; }
 }
+
+/* ================== TAMPILAN MOBILE / RESPONSIF ================== */
+
+.mobile-menu-btn {
+    display: none;
+    width: 40px;
+    height: 40px;
+    border: none;
+    background: transparent;
+    border-radius: 10px;
+    cursor: pointer;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 5px;
+}
+.mobile-menu-btn span {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: var(--teks-gelap, #1E2D45);
+    border-radius: 2px;
+}
+.mobile-menu-btn:active { background: rgba(0,0,0,0.06); }
+
+.topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+}
+
+.sidebar-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(8, 20, 40, 0.5);
+    z-index: 99;
+}
+
+@media (max-width: 860px) {
+    .sidebar {
+        transform: translateX(-100%);
+        width: 270px !important;
+        transition: transform .28s ease;
+        z-index: 200;
+    }
+    body.sidebar-mobile-open .sidebar {
+        transform: translateX(0);
+    }
+    body.sidebar-mobile-open .sidebar-overlay {
+        display: block;
+    }
+    /* Di layar kecil, sidebar SELALU tampil penuh (dengan teks) saat dibuka --
+       abaikan mode "collapsed jadi ikon saja" punya versi desktop. */
+    body.sidebar-collapsed .sidebar {
+        width: 270px;
+    }
+    body.sidebar-collapsed .sidebar-brand h2,
+    body.sidebar-collapsed .sidebar-brand p,
+    body.sidebar-collapsed .nav-label,
+    body.sidebar-collapsed .nav-text {
+        display: revert;
+        opacity: 1;
+    }
+    .sidebar-toggle { display: none; }
+
+    .main-content {
+        margin-left: 0 !important;
+    }
+
+    .mobile-menu-btn { display: flex; }
+
+    .topbar {
+        padding: 12px 14px;
+        gap: 8px;
+    }
+    .topbar-title h1 { font-size: 15px; }
+    .topbar-title p { font-size: 11px; }
+    .topbar-user-chip {
+        font-size: 11px;
+        padding: 6px 10px;
+    }
+    .topbar-user-chip strong { display: block; }
+
+    .page-body { padding: 14px !important; }
+
+    /* Grid ringkasan/statistik jadi 1 kolom di HP */
+    .metrics-grid,
+    .dist-grid,
+    .alert-grid,
+    .chart-row,
+    .form-grid,
+    .form-grid.cols-3 {
+        grid-template-columns: 1fr !important;
+    }
+
+    /* Tabel data selalu bisa digeser ke samping di layar sempit,
+       daripada kolomnya kepepet/rusak. */
+    table.data-table, .xl-table {
+        min-width: 640px;
+    }
+    table.data-table {
+        font-size: 12.5px;
+    }
+
+    .card-header {
+        flex-direction: column;
+        align-items: flex-start !important;
+        gap: 8px;
+    }
+
+    .btn, button, input[type=submit] {
+        min-height: 40px;
+    }
+
+    h1 { font-size: 20px; }
+    h2 { font-size: 17px; }
+    h3 { font-size: 15px; }
+}
+
+@media (max-width: 480px) {
+    .topbar-user-chip { display: none; }
+    .login-card, .box { padding: 22px 18px !important; }
+}

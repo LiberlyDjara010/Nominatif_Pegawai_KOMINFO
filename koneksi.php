@@ -765,4 +765,209 @@ function formatTanggalMasukInput(?string $value): string {
 
     return date('d/m/Y', $timestamp);
 }
+
+// ================== RIWAYAT / NOTIFIKASI LOGIN ==================
+
+// Pastikan tabel login_log ada (auto-create, idempoten).
+function pastikanTabelLoginLog($conn): void {
+    static $sudah = false;
+    if ($sudah) return;
+
+    if (!mysqli_query($conn, "
+        CREATE TABLE IF NOT EXISTS login_log (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            waktu DATETIME NOT NULL
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ")) {
+        catatErrorLoginLog('CREATE TABLE login_log gagal: ' . mysqli_error($conn));
+    }
+
+    // Tabel ini mungkin SUDAH ADA dari percobaan sebelumnya dengan kolom yang
+    // belum lengkap -- "CREATE TABLE IF NOT EXISTS" di atas tidak akan
+    // menambah kolom yang kurang pada tabel yang sudah ada. Jadi di sini
+    // dicek satu-satu, kolom yang belum ada langsung ditambahkan. Nama kolom
+    // dibungkus backtick (`) supaya aman kalau kebetulan sama dengan kata
+    // kunci SQL (mis. "role" tereservasi di sebagian versi MariaDB).
+    $kolomWajib = [
+        'nama_pegawai'      => "VARCHAR(150) NULL",
+        'username'          => "VARCHAR(50) NULL",
+        'role'              => "VARCHAR(50) NULL",
+        'status'            => "ENUM('berhasil','gagal') NOT NULL DEFAULT 'gagal'",
+        'ip_address'        => "VARCHAR(45) NULL",
+        'lokasi'            => "VARCHAR(150) NULL",
+        'device_info'       => "VARCHAR(255) NULL",
+        'dibaca_superadmin' => "TINYINT(1) NOT NULL DEFAULT 0",
+    ];
+
+    $kolomAda = [];
+    $res = mysqli_query($conn, "DESCRIBE login_log");
+    if ($res) {
+        while ($row = mysqli_fetch_assoc($res)) $kolomAda[$row['Field']] = $row['Type'];
+    } else {
+        catatErrorLoginLog('DESCRIBE login_log gagal: ' . mysqli_error($conn));
+    }
+
+    foreach ($kolomWajib as $kolom => $definisi) {
+        if (!isset($kolomAda[$kolom])) {
+            if (!mysqli_query($conn, "ALTER TABLE login_log ADD COLUMN `$kolom` $definisi")) {
+                catatErrorLoginLog("ALTER TABLE login_log ADD COLUMN `$kolom` gagal: " . mysqli_error($conn));
+            }
+        }
+    }
+
+    // Kolom "status" mungkin SUDAH ADA dari versi sebelumnya tapi dengan
+    // pilihan ENUM yang beda (mis. peninggalan versi lama), sehingga insert
+    // dengan nilai 'berhasil'/'gagal' gagal dengan "Data truncated". Kalau
+    // definisinya belum sesuai, diperbaiki di sini lewat 3 langkah supaya
+    // aman walaupun ada data lama yang nilainya tidak cocok:
+    // 1) lebarkan dulu jadi VARCHAR (nerima teks apa saja),
+    // 2) rapikan nilai lama yang tidak dikenal jadi 'gagal',
+    // 3) baru persempit lagi jadi ENUM yang benar.
+    $tipeStatusSaatIni = $kolomAda['status'] ?? '';
+    if (stripos($tipeStatusSaatIni, "'berhasil'") === false || stripos($tipeStatusSaatIni, "'gagal'") === false) {
+        if (!mysqli_query($conn, "ALTER TABLE login_log MODIFY COLUMN `status` VARCHAR(20) NOT NULL DEFAULT 'gagal'")) {
+            catatErrorLoginLog('Lebarkan kolom status ke VARCHAR gagal: ' . mysqli_error($conn));
+        }
+        if (!mysqli_query($conn, "UPDATE login_log SET status = 'gagal' WHERE status NOT IN ('berhasil','gagal')")) {
+            catatErrorLoginLog('Rapikan data lama kolom status gagal: ' . mysqli_error($conn));
+        }
+        if (!mysqli_query($conn, "ALTER TABLE login_log MODIFY COLUMN `status` ENUM('berhasil','gagal') NOT NULL DEFAULT 'gagal'")) {
+            catatErrorLoginLog('Persempit kolom status ke ENUM gagal: ' . mysqli_error($conn));
+        }
+    }
+
+    $sudah = true;
+}
+
+// Baca info perangkat/browser secara kasar dari User-Agent -- tidak perlu
+// library tambahan, cukup deteksi kata kunci umum.
+function deteksiPerangkat(string $userAgent): string {
+    $ua = strtolower($userAgent);
+
+    if (strpos($ua, 'android') !== false) $platform = 'Android';
+    elseif (strpos($ua, 'iphone') !== false || strpos($ua, 'ipad') !== false) $platform = 'iOS';
+    elseif (strpos($ua, 'windows') !== false) $platform = 'Windows';
+    elseif (strpos($ua, 'macintosh') !== false || strpos($ua, 'mac os') !== false) $platform = 'macOS';
+    elseif (strpos($ua, 'linux') !== false) $platform = 'Linux';
+    else $platform = 'Tidak diketahui';
+
+    if (strpos($ua, 'edg/') !== false) $browser = 'Edge';
+    elseif (strpos($ua, 'chrome') !== false && strpos($ua, 'chromium') === false) $browser = 'Chrome';
+    elseif (strpos($ua, 'firefox') !== false) $browser = 'Firefox';
+    elseif (strpos($ua, 'safari') !== false && strpos($ua, 'chrome') === false) $browser = 'Safari';
+    else $browser = 'Browser lain';
+
+    return "$platform \u2014 $browser";
+}
+
+// Cek apakah sebuah IP termasuk jaringan lokal/privat (LAN kantor),
+// yang memang tidak bisa dipetakan ke lokasi geografis.
+function ipAdalahLokal(string $ip): bool {
+    if ($ip === '127.0.0.1' || $ip === '::1' || $ip === '') return true;
+    return !filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE);
+}
+
+// Perkiraan lokasi dari alamat IP PUBLIK lewat layanan geolokasi gratis.
+// PENTING: fungsi ini butuh akses internet dan TIDAK dipanggil saat proses
+// login (supaya login tidak pernah lambat/gagal gara-gara jaringan) --
+// hanya dipanggil belakangan, saat halaman Notifikasi Login dibuka, untuk
+// baris yang lokasinya belum diketahui.
+function ambilLokasiDariApi(string $ip): ?string {
+    $context = stream_context_create(['http' => ['timeout' => 2]]);
+    $hasil = @file_get_contents("http://ip-api.com/json/$ip?fields=status,city,regionName,country", false, $context);
+    if ($hasil === false) return null;
+
+    $data = json_decode($hasil, true);
+    if (!is_array($data) || ($data['status'] ?? '') !== 'success') return null;
+
+    $bagian = array_filter([$data['city'] ?? '', $data['regionName'] ?? '', $data['country'] ?? '']);
+    return $bagian ? implode(', ', $bagian) : null;
+}
+
+// Ambil alamat IP pengunjung (mencoba beberapa header umum di belakang proxy).
+function ambilAlamatIp(): string {
+    foreach (['HTTP_X_FORWARDED_FOR', 'HTTP_CLIENT_IP', 'REMOTE_ADDR'] as $key) {
+        if (!empty($_SERVER[$key])) {
+            $ip = explode(',', $_SERVER[$key])[0];
+            return trim($ip);
+        }
+    }
+    return '';
+}
+
+// Catat satu percobaan login (berhasil atau gagal) ke tabel login_log.
+// SENGAJA tidak memanggil layanan internet apapun di sini -- supaya
+// pencatatan ini selalu instan dan selalu berhasil, di jaringan manapun
+// (LAN kantor, WiFi, atau tanpa internet sama sekali). Untuk IP publik,
+// kolom lokasi disimpan kosong dulu dan baru diisi belakangan (lihat
+// lengkapiLokasiKosong() di notifikasi_login.php).
+function catatLoginLog($conn, string $namaPegawai, string $username, ?string $role, string $status): void {
+    // Pencatatan log ini fitur pelengkap -- kalau karena sebab apapun gagal
+    // (tabel bermasalah, dsb), JANGAN sampai bikin proses login ikut gagal.
+    // Kalau ada yang gagal, dicatat ke file login_debug.log supaya bisa
+    // diperiksa nanti, tanpa mengganggu proses login sama sekali.
+    try {
+        pastikanTabelLoginLog($conn);
+
+        $ip = ambilAlamatIp();
+        $lokasi = ipAdalahLokal($ip) ? 'Jaringan Lokal / Kantor (LAN)' : null;
+        $device = deteksiPerangkat($_SERVER['HTTP_USER_AGENT'] ?? '');
+        if ($device === '') $device = 'Tidak diketahui';
+
+        $stmt = $conn->prepare("
+            INSERT INTO login_log (waktu, nama_pegawai, username, `role`, status, ip_address, lokasi, device_info)
+            VALUES (NOW(), ?, ?, ?, ?, ?, ?, ?)
+        ");
+        if ($stmt === false) {
+            catatErrorLoginLog('prepare() gagal: ' . $conn->error);
+            return;
+        }
+
+        $stmt->bind_param('sssssss', $namaPegawai, $username, $role, $status, $ip, $lokasi, $device);
+        if (!$stmt->execute()) {
+            catatErrorLoginLog('execute() gagal: ' . $stmt->error);
+        }
+    } catch (\Throwable $e) {
+        catatErrorLoginLog('Exception: ' . $e->getMessage());
+    }
+}
+
+// Tulis pesan error ke file login_debug.log di folder aplikasi, supaya
+// masalah pencatatan login bisa diperiksa tanpa mengganggu proses login.
+function catatErrorLoginLog(string $pesan): void {
+    $baris = '[' . date('Y-m-d H:i:s') . '] ' . $pesan . PHP_EOL;
+    @file_put_contents(__DIR__ . '/login_debug.log', $baris, FILE_APPEND);
+}
+
+// Lengkapi kolom lokasi yang masih kosong (khusus IP publik) untuk
+// baris-baris yang sedang ditampilkan -- dipanggil dari halaman Notifikasi
+// Login saja (bukan saat login), jadi TIDAK memperlambat proses login sama
+// sekali. Dibatasi jumlahnya per panggilan supaya halaman tetap cepat dibuka.
+function lengkapiLokasiKosong($conn, int $batasMaksimal = 15): void {
+    pastikanTabelLoginLog($conn);
+    $res = mysqli_query($conn, "
+        SELECT id, ip_address FROM login_log
+        WHERE lokasi IS NULL AND ip_address IS NOT NULL AND ip_address != ''
+        ORDER BY id DESC LIMIT $batasMaksimal
+    ");
+    if (!$res) return;
+
+    while ($row = mysqli_fetch_assoc($res)) {
+        $lokasi = ambilLokasiDariApi($row['ip_address']);
+        if ($lokasi === null) continue; // belum bisa diketahui (mis. tidak ada internet) -- coba lagi lain kali
+        $stmt = $conn->prepare("UPDATE login_log SET lokasi = ? WHERE id = ?");
+        if ($stmt === false) continue;
+        $stmt->bind_param('si', $lokasi, $row['id']);
+        $stmt->execute();
+    }
+}
+
+// Jumlah login (berhasil/gagal) yang belum "dibaca" superadmin -- dipakai
+// untuk badge notifikasi di menu navigasi.
+function jumlahLoginBelumDibaca($conn): int {
+    pastikanTabelLoginLog($conn);
+    $res = mysqli_query($conn, "SELECT COUNT(*) AS n FROM login_log WHERE dibaca_superadmin = 0");
+    $row = $res ? mysqli_fetch_assoc($res) : null;
+    return $row ? (int) $row['n'] : 0;
+}
 ?>

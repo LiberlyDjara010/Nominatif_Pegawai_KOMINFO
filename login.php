@@ -13,11 +13,12 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 
+    $namaPegawai = trim($_POST['nama_pegawai'] ?? '');
     $username = trim($_POST['username'] ?? '');
     $password = trim($_POST['password'] ?? '');
 
-    if ($username == '' || $password == '') {
-        $error = "Username dan Password wajib diisi.";
+    if ($namaPegawai == '' || $username == '' || $password == '') {
+        $error = "Nama, Username, dan Password wajib diisi.";
     } else {
 
         $stmt = $conn->prepare("
@@ -38,6 +39,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 
             if(password_verify($password,$user['password'])){
 
+                catatLoginLog($conn, $namaPegawai, $username, $user['role'], 'berhasil');
+
                 session_regenerate_id(true);
 
                 $_SESSION['login']=true;
@@ -50,6 +53,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 
                 $_SESSION['nama']=$user['nama'];
 
+                $_SESSION['nama_login']=$namaPegawai;
+
                 $_SESSION['role']=$user['role'];
 
                 $_SESSION['last_activity']=time();
@@ -61,11 +66,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['login'])) {
 
             }else{
 
+                catatLoginLog($conn, $namaPegawai, $username, $user['role'] ?? null, 'gagal');
+
                 $error="Username atau Password salah.";
 
             }
 
         }else{
+
+            catatLoginLog($conn, $namaPegawai, $username, null, 'gagal');
 
             $error="Username atau Password salah.";
 
@@ -387,6 +396,13 @@ body {
             <?php endif; ?>
 
             <form method="POST">
+                <div class="field">
+                    <label for="nama_pegawai">Nama Anda</label>
+                    <input type="text" id="nama_pegawai" name="nama_pegawai"
+                           placeholder="Nama lengkap yang login" required
+                           value="<?= e($_POST['nama_pegawai'] ?? '') ?>">
+                </div>
+
                 <div class="field">
                     <label for="username">Username</label>
                     <input type="text" id="username" name="username"

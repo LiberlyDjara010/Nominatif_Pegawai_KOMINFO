@@ -2,6 +2,22 @@
 require 'auth.php';
 include 'koneksi.php';
 
+// Kalau database ini belum pernah dimigrasi (mis. baru dipasang / masih
+// pakai skema tabel pegawai yang lama), kolom seperti jenis_jabatan belum
+// ada -- daripada dashboard fatal error mendadak, kasih pesan yang jelas
+// dan arahkan ke halaman migrasi.
+if (!pegawaiFieldExists($conn, 'jenis_jabatan')) {
+    echo '<!DOCTYPE html><html lang="id"><head><meta charset="UTF-8">
+    <title>Perlu Migrasi Database</title></head><body style="font-family:sans-serif;padding:40px;max-width:600px;margin:0 auto;">
+    <h2>⚠ Database Belum Dimigrasi</h2>
+    <p>Tabel <code>pegawai</code> di database ini belum punya kolom-kolom yang dibutuhkan sistem
+    (mis. <code>jenis_jabatan</code>). Ini biasanya terjadi kalau database baru/masih fresh.</p>
+    <p>Login sebagai <strong>Super Admin</strong>, lalu buka halaman migrasi ini satu kali untuk melengkapi struktur tabelnya:</p>
+    <p><a href="migrasi_lengkap.php" style="display:inline-block;background:#1A5FA8;color:#fff;padding:10px 18px;border-radius:8px;text-decoration:none;">Jalankan migrasi_lengkap.php →</a></p>
+    </body></html>';
+    exit;
+}
+
 $pageTitle    = 'Dashboard';
 $pageSubtitle = 'Ringkasan data kepegawaian per hari ini, ' . date('d F Y');
 
